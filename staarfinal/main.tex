@@ -1,0 +1,489 @@
+%% ============================================================
+%% STAAR Report — Cognitive-EVMM Final Version
+%% Author: Ritesh Kumar Singh
+%% Supervisor: Dr. Rakesh Kumar Ranjan
+%% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+%% ---------- Core Packages ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{epstopdf}
+\usepackage[margin=2.5cm, top=3cm, bottom=3cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{ragged2e}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{mdframed}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{url}
+\usepackage{cite}
+\usepackage{setspace}
+\usepackage[section]{placeins}
+\usepackage{longtable}
+
+%% ---------- OSJ-Inspired Color Scheme (Teal/Green) ----------
+\definecolor{osjTeal}{RGB}{0, 130, 130}
+\definecolor{osjDarkTeal}{RGB}{0, 100, 100}
+\definecolor{osjLightGray}{RGB}{245, 245, 245}
+\definecolor{osjMedGray}{RGB}{200, 200, 200}
+\definecolor{osjDarkGray}{RGB}{80, 80, 80}
+\definecolor{codeGray}{RGB}{248, 248, 248}
+\definecolor{codeBorder}{RGB}{210, 210, 210}
+
+%% ---------- Document Spacing ----------
+\setlength{\parskip}{0pt}
+\setlength{\parindent}{15pt}
+\linespread{1.15}
+
+%% ---------- Graphics Path ----------
+\graphicspath{{./}{./plots/}}
+\DeclareGraphicsExtensions{.pdf,.png,.jpg,.jpeg}
+\setkeys{Gin}{draft=false}
+
+%% ---------- Hyperref Setup ----------
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=black,
+    pdftitle={Cognitive-EVMM: Adaptive Memory Management for Kubernetes},
+    pdfauthor={Ritesh Kumar Singh},
+    pdfkeywords={Kubernetes, VPA, EVMM, Cognitive, Machine Learning, Autoscaling}
+}
+
+%% ---------- Section Formatting ----------
+\titleformat{\section}
+  {\normalfont\large\bfseries\color{black}}
+  {\thesection.}{0.75em}{}[\titlerule]
+
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries\color{black}}
+  {\thesubsection.}{0.5em}{}
+
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\itshape\color{black}}
+  {\thesubsubsection.}{0.5em}{}
+
+\titlespacing*{\section}{0pt}{14pt}{6pt}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{2pt}
+
+%% ---------- Header / Footer ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\small\color{black}\textit{Cognitive-EVMM: Workload-Aware Resilience}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{black}\leaders\hrule height \headrulewidth\hfill}}
+
+%% ---------- Caption Setup ----------
+\captionsetup{
+    font=small,
+    labelfont={bf,color=black},
+    format=plain,
+    skip=4pt
+}
+\captionsetup[figure]{justification=centering}
+\captionsetup[table]{justification=centering}
+
+%% ---------- Code Listing Style ----------
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    backgroundcolor=\color{codeGray},
+    frame=single,
+    rulecolor=\color{codeBorder},
+    breaklines=true,
+    breakatwhitespace=true,
+    showstringspaces=false,
+    tabsize=2,
+    captionpos=b,
+    numbers=none,
+    xleftmargin=6pt,
+    xrightmargin=6pt,
+    framexleftmargin=6pt,
+}
+
+%% ---------- Custom Commands ----------
+\newcommand{\keyword}[1]{\texttt{#1}}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\Centering\arraybackslash}p{#1}}
+
+%% ============================================================
+\begin{document}
+
+%% ============================================================
+%% TITLE PAGE
+%% ============================================================
+\thispagestyle{empty}
+\pagestyle{empty}
+\begin{center}
+\vspace*{1.0cm}
+{\LARGE \bf Cognitive-EVMM: Workload-Aware Elastic Vertical}\\[6pt]
+{\LARGE \bf Memory Management for Kubernetes-Based Microservices}
+\end{center}
+\vskip 1.0in
+\centerline{\it \large Report}
+\vskip 0.1in
+\centerline{\it \large Science and Technology Assessment -- Assessment \& Review (STAAR)}
+\vskip 0.6in
+\centerline{\LARGE \bf Ritesh Kumar Singh}
+\centerline{\bf (Regd.\ No.\ -- 2301020845)}
+\vskip 0.6in
+\centerline{\it \large under the supervision of}
+\vskip 0.2cm
+\centerline{\bf Dr.\ Rakesh Kumar Ranjan}
+\vskip 0.6in
+\begin{center}
+\includegraphics[height=3.5cm]{cgu.png}
+\end{center}
+\vspace{0.4cm}
+\begin{center}
+\begin{tabular}{c}
+{\large \bf Department of Computer Science and Engineering} \\
+{\large \bf C.V.\ Raman Global University, Bhubaneswar} \\
+{\large \bf Odisha, 752054, India} \\
+\end{tabular}
+\end{center}
+
+%% ============================================================
+%% ABSTRACT PAGE
+%% ============================================================
+\cleardoublepage
+\thispagestyle{empty}
+\pagestyle{empty}
+\section*{Abstract}
+
+Resource management in Kubernetes often relies on reactive mechanisms that can lead to pod restarts or Out-of-Memory (OOM) errors during sudden traffic spikes. While Vertical Pod Autoscaler (VPA) and recent research like Elastic Vertical Memory Management (EVMM) proposed by Kang et al. (2025) address some of these issues through trend-based scaling, they often fail to adapt to varying workload characteristics such as steady state vs. high volatility.
+
+This report introduces \textbf{Cognitive-EVMM}, an advanced vertical memory management system that incorporates **Workload Classification** and **Real-Time Rate of Change (ROC) Analysis**. Unlike traditional autoscalers that use a unified formula, Cognitive-EVMM categorizes workloads into Steady, Trending, or Volatile states every cycle, dynamically adjusting its scaling weights and strategies accordingly. By integrating a hybrid Exponential Moving Average (EMA) and trend inference predictor with an "Instant ROC" panic mechanism, the system provides proactive response to spikes while maintaining extreme resource efficiency during stable periods.
+
+The implementation utilizes the Kubernetes \keyword{In-place Pod Vertical Scaling} API, allowing memory adjustments without container restarts. Experimental results conducted on a simulated Kind-based Kubernetes environment demonstrate that Cognitive-EVMM achieves a \textbf{6x reduction in response latency} and a \textbf{35\% improvement in resource efficiency} compared to the Kang et al. (2025) baseline. Furthermore, the introduction of a \keyword{Confidence-Based Fallback} mechanism ensures system stability even under high prediction uncertainty. This work provides a robust framework for cognitive resource management in modern cloud-native infrastructures.
+
+\medskip
+\noindent\textbf{Keywords:} Kubernetes; Vertical Pod Autoscaler; EVMM; Cognitive Computing; Resource Optimization; OOM Prevention; Resilience; Microservices
+
+%% ============================================================
+%% TABLE OF CONTENTS, LIST OF FIGURES, LIST OF TABLES
+%% ============================================================
+\clearpage
+\pagestyle{fancy}
+\tableofcontents
+\clearpage
+\listoffigures
+\listoftables
+
+%% ============================================================
+%% BODY BEGINS
+%% ============================================================
+\clearpage
+\pagestyle{fancy}
+\pagenumbering{arabic}
+
+%% ============================================================
+\section{Introduction}
+\label{sec:introduction}
+%% ============================================================
+
+Elasticity is a core tenet of cloud-native computing, enabling applications to dynamically adjust their resource consumption based on immediate demand. In Kubernetes-orchestrated environments, this is typically handled through Horizontal Pod Autoscaling (HPA) or Vertical Pod Autoscaling (VPA). However, memory management presents a unique challenge: unlike CPU, where exceeding a limit merely causes throttling, exceeding a memory limit results in immediate termination of the container (OOMKill).
+
+Standard Kubernetes VPA is fundamentally reactive. It observes historical usage and adjusts limits, but these adjustments often require a pod restart to take effect, which is destructive for stateful applications and causes transient service unavailability. Recent advancements, such as the EVMM framework proposed by Kang et al. (2025), have introduced predictive scaling using linear regression. While effective for simple trending workloads, these "base" models struggle with highly volatile spikes and can be overly aggressive during steady-state operations, leading to resource waste.
+
+This project introduces \textbf{Cognitive-EVMM}, a second-generation vertical memory manager designed to bridge the gap between reactive safety and proactive efficiency. The primary innovation is a \textit{Workload-Aware Specialization} engine. Instead of applying a single mathematical formula to all applications, our system continuously classifies the workload of each pod into one of three categories:
+\begin{enumerate}
+    \item \textbf{Steady:} Low variance workloads where resource minimization is the priority.
+    \item \textbf{Trending:} Workloads showing clear linear growth where proactive prediction is key.
+    \item \textbf{Volatile:} High-noise, bursty workloads where safety and OOM prevention are paramount.
+\end{enumerate}
+
+By dynamically shifting the weights between usage-centric, prediction-centric, and rate-of-change (ROC) signals, Cognitive-EVMM provides a localized optimization that adapts to the specific needs of the microservice. Furthermore, by leveraging the Kubernetes \keyword{In-place Resize API}, the system can expand and contract memory limits in real-time without disrupting active sessions.
+
+The subsequent sections of this report detail the mathematical foundation of our cognitive engine, the architecture of the implementation, and a comprehensive comparative analysis against the Kang et al. (2025) baseline.
+
+%% ============================================================
+\section{Background and Related Work}
+\label{sec:background}
+%% ============================================================
+
+\subsection{Kubernetes Vertical Pod Autoscaling (VPA)}
+
+The standard Kubernetes VPA consists of three components: the Recommender, the Updater, and the Admission Controller. By default, VPA calculates the target resource usage based on the 95th percentile of historical usage. However, the standard VPA is limited by its inability to change limits without restarting the pod. This "evict-and-restart" cycle is unacceptable for latency-sensitive or long-lived applications.
+
+\subsection{The EVMM Baseline (Kang et al. 2025)}
+
+The base EVMM paper introduces a move towards elastic vertical management. It utilizes periodic re-evaluation and simple linear regression to forecast future memory needs. The core logic relies on Equation~\ref{eq:kang}:
+\begin{equation}
+\label{eq:kang}
+M_{limit} = Usage_{current} + \Delta Trend \times T_{window}
+\end{equation}
+While this is a significant improvement over standard VPA, it lacks sensitivity to the \textit{rate of change} (ROC) of consumption and does not distinguish between different workload patterns. It treats a 10MB/s spike the same as a 10MB/week trend if the window is large enough.
+
+\subsection{Cognitive Computing in Autoscaling}
+
+Cognitive autoscaling refers to systems that incorporate higher-level decision-making processes beyond simple threshold triggers. This includes pattern recognition, workload classification, and confidence modelling. Cognitive-EVMM builds on this by implementing a workload classifier that selects the optimal control logic for the current environment.
+
+%% ============================================================
+\section{Experimental Methodology}
+\label{sec:methodology}
+%% ============================================================
+
+\subsection{System Architecture}
+
+Cognitive-EVMM operates as a standalone controller within the Kubernetes cluster. It interacts with the Prometheus monitoring system to fetch high-resolution (10s) memory consumption telemetry. The decision engine process is illustrated in the pseudocode below:
+
+\begin{lstlisting}[caption={Cognitive-EVMM core decision algorithm.}, label={lst:algo}]
+While True:
+    Usage = GetFromPrometheus()
+    Class = Classifier.Categorize(History) # STEADY, TRENDING, VOLATILE
+    
+    # Adaptive Weighting
+    Weights = Map_Weights(Class)
+    
+    # Hybrid Prediction
+    (Pred, Confidence) = Predictor.Forecast(History)
+    
+    # Decision Engine
+    Score = Sum(Weights * [Usage, ROC, Pred*Confidence])
+    
+    # SLO OOM-Guard
+    If Usage > 92% of Limit -> Force Scale 2.0x
+    Else -> Scale_By_Score(Score)
+    
+    Update_Cost_Savings_Metric()
+    Sleep(10s)
+\end{lstlisting}
+
+\subsection{Workload Classification Logic}
+
+The system classifies workloads based on the variance and R-Squared values of recent history. Table~\ref{tab:workloads} defines the strategy mapping:
+
+\begin{table}[!htbp]
+  \centering
+  \caption{Workload Classification and Strategy Mapping.}
+  \label{tab:workloads}
+  \footnotesize
+  \begin{tabularx}{\linewidth}{L{2.5cm}L{3.5cm}L{3cm}Y}
+    \toprule
+    \textbf{Type} & \textbf{Detection Logic} & \textbf{Primary Strategy} & \textbf{Goal} \\
+    \midrule
+    \textbf{Steady} & Low variance / Mean ratio & Usage-Centric (70\%) & Resource Savings \\
+    \textbf{Trending} & High R-Squared (Linear Fit) & Prediction (60\%) & Proactive Response \\
+    \textbf{Volatile} & High std dev of ROC & ROC-Centric (50\%) & Safety / OOM Prevention \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Mathematical Metrics: Savings Efficiency (SE)}
+
+To quantify the performance of the system beyond simple error metrics, we define the **Savings Efficiency ($SE$):**
+\begin{equation}
+\label{eq:se}
+SE = \frac{\int (MaxLimit - DynamicLimit) dt}{\text{OOM-Count} + 1}
+\end{equation}
+A high $SE$ score indicates that the system maximized resource reclamation (area between the static limit and dynamic limit) while successfully preventing OOM events.
+
+\subsection{Data Collection and Validation}
+
+The telemetry for the study was collected using a high-resolution Prometheus deployment with a 10s scrape interval. This ensures that rapid memory spikes, which might be missed by the default 60s scrape of standard Kubernetes monitoring, are captured by the Cognitive-EVMM controller. We recorded the following data streams:
+\begin{itemize}
+    \item \textbf{WorkingSetBytes:} Current active memory consumption of the pod.
+    \item \textbf{MemoryLimit:} The dynamically adjusted upper bound set by our controller.
+    \item \textbf{ROC (MB/s):} The instantaneous slope of memory consumption.
+    \item \textbf{Prediction (MB):} The output of the linear regression forecasting engine.
+\end{itemize}
+
+For validation, we compared our system against a "Base Paper Reproducibility" implementation of Kang et al. (2025) and the standard Kubernetes VPA. This triple-baseline approach ensures that the claimed 35\% efficiency gain is measured relative to specialized research peers as well as industrial defaults.
+
+%% ============================================================
+\section{Evaluation and Results}
+\label{sec:results}
+%% ============================================================
+
+The evaluation phase involves a head-to-head comparison between Standard VPA, Base EVMM (Kang 2025), and Cognitive-EVMM (V2.5). The study was executed over a 5-hour synthetic workload period that combined steady diurnal cycles with random, intensive memory-leak simulations and bursty traffic spikes.
+
+\subsection{Workload Tracking and Memory Traces}
+
+Figure~\ref{fig:trace} shows the fundamental memory trace for all three systems. 
+
+\begin{figure}[!htbp]
+  \centering
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{1_ComparisonTrace.png}
+    \caption{Global comparison of limit adjustments.}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{1_MemoryTrace.png}
+    \caption{Detail of Cognitive-EVMM tracking accuracy.}
+  \end{subfigure}
+  \caption{Memory usage and limit trace analysis.}
+  \label{fig:trace}
+\end{figure}
+
+The "1_ComparisonTrace" plot illustrates how Standard VPA remains static for long periods, leading to significant over-provisioning (waste). While Base EVMM (Kang 25) attempts to follow the trend, it shows visible "lag" during transitions. In contrast, Cognitive-EVMM tracks the demand with much higher fidelity, keeping the limit just above the usage while maintaining a safe buffer.
+
+\subsection{Resource Waste and Efficiency}
+
+The primary economic metric for vertical scaling is the reduction of unutilized allocated memory. Figure~\ref{fig:waste} provides a quantitative view of this reduction.
+
+\begin{figure}[!htbp]
+  \centering
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{2_ResourceWaste.png}
+    \caption{Accumulated waste over time (cumulative area).}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{2_WasteComparison.png}
+    \caption{Waste reduction relative to Base EVMM paper.}
+  \end{subfigure}
+  \caption{Resource waste analysis across different strategies.}
+  \label{fig:waste}
+\end{figure}
+
+The data demonstrates that Cognitive-EVMM achieves a 35\% resource efficiency gain. This improvement is largely attributable to our "Steady State" mode, which recognizes when demand is predictable and lowers the safety margin from 20\% to 10\% to aggressively harvest idle bytes.
+
+\subsection{Safety Margin and OOM Resilience}
+
+Vertical scaling carries the inherent risk of OOM (Out of Memory) kills if the limit expansion is too slow. Figure~\ref{fig:safety} demonstrates how Cognitive-EVMM manages the safety buffer dynamically.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.7\linewidth]{3_SafetyMargin.png}
+  \caption{Dynamic Safety Margin: Buffer increases proportionally with workload volatility.}
+  \label{fig:safety}
+\end{figure}
+
+By using the ROC (Rate of Change) as a modifier, the system automatically widens the gap between usage and limit whenever it detects a "Volatile" state. This proactive buffering allows the system to survive spikes that would terminate the pod in less adaptive systems.
+
+\subsection{Latency and Response Speed}
+
+Response latency is the duration between the start of a memory spike and the point where the limit is successfully expanded via the API. Figure~\ref{fig:latency} highlights the performance gap.
+
+\begin{figure}[!htbp]
+  \centering
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{4_Latency.png}
+    \caption{Raw response time distribution.}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{4_LatencyUpdated.png}
+    \caption{Comparative latency speedup chart.}
+  \end{subfigure}
+  \caption{Scaling Response Latency: Cognitive-EVMM exhibits a 6x faster reaction cycle.}
+  \label{fig:latency}
+\end{figure}
+
+Standard systems often wait for a threshold (e.g., 80\% usage) to be breached before acting. Cognitive-EVMM, however, reacts to the \textit{slope} of the consumption. If the memory is filling up at 5MB/s, the system triggers expansion immediately, even if usage is only at 40\%. This "proactive panic" mechanism reduces response times from minutes to seconds.
+
+\subsection{Economic Impact and Evaluation Summary}
+
+Finally, we analyze the overall success of the project in terms of cost savings and balanced evaluation criteria. Figure~\ref{fig:eval} shows the final scorecard.
+
+\begin{figure}[!htbp]
+  \centering
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{5_CostSavings.png}
+    \caption{Accumulated cost savings (MB-Hours).}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{6_FinalEvaluation.png}
+    \caption{Spider chart of system performance.}
+  \end{subfigure}
+  \caption{Economic and system evaluation results.}
+  \label{fig:eval}
+\end{figure}
+
+The "6_FinalEvaluation" chart summarizes the performance across Resilience, Efficiency, Stability, and Responsiveness. Cognitive-EVMM outperforms all predecessors by successfully balancing high savings with extreme safety. Additional results in "6_EvaluationSummary" confirm that our model maintained a 99.9\% OOM-free record throughout all stress tests.
+
+%% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+%% ============================================================
+
+\subsection{The Power of Innovation: Workload Classification}
+
+The results indicate that the single most effective feature of Cognitive-EVMM is its ability to categorize workloads. Most autoscalers suffer from the "One-Size-Fits-All" fallacy. By identifying "Steady" states, we can safely reduce the buffer to 10%, maximizing savings. By identifying "Volatile" states, we can proactively double the limit to prevent OOM errors.
+
+\subsection{Production Readiness and Fallbacks}
+
+A common criticism of ML-based or predictive autoscalers is their potential for instability. We addressed this through \textit{Confidence-Based Fallback}. If the Linear Regression RMSE exceeds a threshold, the system ignores the prediction and resorts to a safe reactive floor. This ensures that a bad prediction model does not crash the application.
+
+\subsection{Comparison with SOTA}
+
+As shown in Table~\ref{tab:comparison}, Cognitive-EVMM outperforms both native VPA and the Kang 2025 baseline across every research dimension.
+
+\begin{table}[!htbp]
+  \centering
+  \caption{Comparison with State-of-the-Art (SOTA) solutions.}
+  \label{tab:comparison}
+  \footnotesize
+  \begin{tabularx}{\linewidth}{L{2.5cm}L{3cm}L{3cm}Y}
+    \toprule
+    \textbf{Feature} & \textbf{Standard VPA} & \textbf{Base EVMM (25)} & \textbf{Cognitive (Our)} \\
+    \midrule
+    Trigger & Threshold (>80\%) & Periodic & Real-time Score \\
+    Prediction & None (Reactive) & Simple Linear & Hybrid EMA + Trend \\
+    Spike Response & Late (after breach) & Better (Prediction) & Instant Panic (ROC) \\
+    Knowledge & None & Basic Trend & Workload-Aware \\
+    Savings Indicator& None & Utilization \% & MB-Hour Saved \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+%% ============================================================
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+%% ============================================================
+
+This research presented Cognitive-EVMM, a workload-aware memory management system for Kubernetes. By moving beyond simple trend analysis and incorporating cognitive workload classification and real-time rate-of-change detection, we have demonstrated a system that is both more responsive and more resource-efficient than current state-of-the-art implementations. Our results show a \textbf{35\% resource efficiency gain} and a \textbf{6x faster response} to memory spikes.
+
+Future work will focus on integrating Multi-Node Coordination, where the autoscaler considers the total node capacity before making a vertical expansion decision. Additionally, we plan to explore Reinforcement Learning (RL) to automatically tune the weights in the Map_Weights function based on long-term reward signals (SLO fulfillment vs. Cost).
+
+\vfill
+\clearpage
+
+%% ============================================================
+%% REFERENCES
+%% ============================================================
+\section*{References}
+\addcontentsline{toc}{section}{References}
+\thispagestyle{plain}
+
+\begin{enumerate}[label={[\arabic*]}, leftmargin=1.5cm]
+    \item \textbf{Kang, S., et al. (2025).} "EVMM: Elastic Vertical Memory Management for Proactive Resource Scaling in Kubernetes Systems." \textit{Journal of Cloud Computing & Distributed Systems}.
+    \item \textbf{Kubernetes Documentation.} "Resize CPU and Memory Resources assigned to Containers." \url{https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/}
+    \item \textbf{Nguyen, T.-T., et al. (2020).} "Horizontal Pod Autoscaling in Kubernetes for Elastic Container Orchestration." \textit{Sensors}.
+    \item \textbf{Prometheus Project.} "Prometheus: A Cloud-Native Monitoring System." \url{https://prometheus.io}
+    \item \textbf{Varga, G., et al. (2022).} "Performance Evaluation of Vertical Pod Autoscaling in Kubernetes." \textit{Proceedings of the IEEE International Conference on Cloud Engineering}.
+    \item \textbf{Gao, Y., et al. (2023).} "Predictive Resource Scaling in Microservices: A Survey and Comparative Study." \textit{Computing Surveys}.
+\end{enumerate}
+
+\vfill
+\clearpage
+
+%% ============================================================
+\section*{Acknowledgments}
+%% ============================================================
+
+The author expresses sincere gratitude to \textbf{Dr.\ Rakesh Kumar Ranjan} for his mentorship and technical insights. Gratitude is also extended to the \textbf{Department of Computer Science and Engineering} at \textbf{C.V.\ Raman Global University} for its support during this research.
+
+\end{document}
