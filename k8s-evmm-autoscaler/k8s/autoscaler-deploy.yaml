@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: evmm-autoscaler-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: evmm-autoscaler-role
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: evmm-autoscaler-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: evmm-autoscaler-role
+subjects:
+- kind: ServiceAccount
+  name: evmm-autoscaler-sa
+  namespace: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evmm-autoscaler
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evmm-autoscaler
+  template:
+    metadata:
+      labels:
+        app: evmm-autoscaler
+    spec:
+      serviceAccountName: evmm-autoscaler-sa
+      containers:
+      - name: autoscaler
+        image: python:3.9-slim
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            pip install --default-timeout=1000 --no-cache-dir kubernetes prometheus-api-client pandas numpy scikit-learn pytz prometheus_client
+            python /app/autoscaler.py
+        volumeMounts:
+        - name: code
+          mountPath: /app/autoscaler.py
+          subPath: autoscaler.py
+      volumes:
+      - name: code
+        configMap:
+          name: evmm-autoscaler-code

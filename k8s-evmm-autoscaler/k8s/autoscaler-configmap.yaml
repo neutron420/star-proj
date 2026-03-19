@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: evmm-autoscaler-code
+  namespace: default
+data:
+  autoscaler.py: |
+    # Paste the autoscaler.py content here or refer to the file.
+    # To keep this artifact clean, I'll assume the user will pipe it:
+    # kubectl create configmap evmm-autoscaler-code --from-file=autoscaler.py

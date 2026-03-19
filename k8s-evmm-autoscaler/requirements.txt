@@ -1,0 +1,9 @@
+kubernetes
+prometheus-api-client
+pandas
+numpy
+scikit-learn
+pytz
+prometheus-client
+matplotlib
+seaborn

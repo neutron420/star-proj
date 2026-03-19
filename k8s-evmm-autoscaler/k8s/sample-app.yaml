@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app
+  namespace: default
+  labels:
+    app: sample-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sample-app
+  template:
+    metadata:
+      labels:
+        app: sample-app
+    spec:
+      containers:
+      - name: app
+        image: python:3.9-slim
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            # Memory stress script
+            while true; do
+              # Random memory allocation
+              echo "Consuming memory..."
+              # Allocate 50MB every 10s then free
+              stress_arr=$(python3 -c "import os; x = ' ' * (50 * 1024 * 1024); import time; time.sleep(60)")
+              sleep 10
+            done
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        # Enable In-place Resize (Optional but recommended for K8s 1.27+)
+        resizePolicy:
+        - resourceName: memory
+          restartPolicy: NotRequired
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-app-svc
+spec:
+  selector:
+    app: sample-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80

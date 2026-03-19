@@ -1,0 +1,32 @@
+{
+  "panels": [
+    {
+      "title": "Decision & Confidence Score",
+      "type": "graph",
+      "targets": [
+        { "expr": "evmm_iv2_scaling_score", "legendFormat": "Score (0-100)" },
+        { "expr": "evmm_iv2_prediction_confidence * 100", "legendFormat": "Confidence (%)" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "title": "Memory Metrics (MB)",
+      "type": "graph",
+      "targets": [
+        { "expr": "evmm_iv2_memory_usage_mb", "legendFormat": "Actual Usage" },
+        { "expr": "evmm_iv2_memory_limit_mb", "legendFormat": "Current Limit" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "title": "Emergency Spike Detection (ROC)",
+      "type": "graph",
+      "targets": [
+        { "expr": "evmm_iv2_memory_rate_of_change", "legendFormat": "MB/s" }
+      ],
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 }
+    }
+  ],
+  "title": "Advanced EVMM-V2 Intelligent Autoscaler",
+  "uid": "evmm_v2_dashboard"
+}
