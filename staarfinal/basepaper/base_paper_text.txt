@@ -1,0 +1,1177 @@
+.
+.
+Latest updates: hps://dl.acm.org/doi/10.1145/3672608.3707723
+.
+.
+RESEARCH-ARTICLE
+Elastic Vertical Memory Management for Container-based Stateful
+Applications in Kubernetes
+TAESHIN KANG, Korea University, Seoul, South Korea
+.
+HEONCHANG YU, Korea University, Seoul, South Korea
+.
+.
+.
+Open Access Support provided by:
+.
+Korea University
+.
+PDF Download
+3672608.3707723.pdf
+18 March 2026
+Total Citations: 0
+Total Downloads: 630
+.
+.
+Published: 14 May 2025
+.
+.
+Citation in BibTeX format
+.
+.
+SAC '25: 40th ACM/SIGAPP Symposium
+on Applied Computing
+March 31 - April 4, 2025
+Catania, Italy
+.
+.
+Conference Sponsors:
+SIGAPP
+SAC '25: Proceedings of the 40th ACM/SIGAPP Symposium on Applied Computing (March 2025)
+hps://doi.org/10.1145/3672608.3707723
+ISBN: 9798400706295
+.
+Elastic Vertical Memory Management for Container-based 
+Stateful Applications in Kubernetes  
+Taeshin Kang 
+Dept. of Computer Science and Engineering 
+Korea University 
+Seoul, Republic of Korea 
+ teri98@korea.ac.kr 
+Heonchang Yu 
+Dept. of Computer Science and Engineering 
+Korea University 
+Seoul, Republic of Korea 
+yuhc@korea.ac.kr 
+ABSTRACT1 
+Cloud service providers offer horizontal auto-scaling to prevent 
+wasting resources by overprovisioning containers. However, this 
+approach struggles to respond immediately to unexpected spikes in 
+resource usage and has limitations in optimizing resource 
+utilization. Vertical auto-scaling overcomes these limitations. 
+Vertical elasticity has become increasingly important in recent 
+years to provide instant resource elasticity for stateful and real-time 
+critical applications.  Nevertheless, vertical elasticity is not actively 
+researched and implemented due to limitations in achieving it. This 
+paper proposes Elastic Vertical Memory Management (EVMM) for 
+stateful applications in the Kubernetes environment, which is the 
+de facto standard in the container orchestration space. We 
+compared EVMM to an existing Kubernetes environment without 
+vertical elasticity and found that it reduced the total execution time 
+of container workflows by up to 35% and memory resource 
+utilization on nodes improved by 1.5x. 
+CCS CONCEPTS 
+• Computer systems organization → Architectures → 
+Distributed architectures → Cloud computing 
+KEYWORDS 
+Auto-scaling, Vertical auto-scaling, Memory Elasticity, Kubernetes, 
+Container 
+ACM Reference format: 
+Taeshin Kang, and Heonchang Yu. 2025. Elastic Vertical Memory 
+Management for Container-based Stateful Applications in Kubernetes. In 
+The 40th ACM/SIGAPP Symposium on Applied Computing (SAC ’25), March 
+31-April 4, 2025, Sicily, Italy. ACM, New York, NY, USA, 8 pages. 
+https://doi.org/10.1145/3672608.3707723 
+1 INTRODUCTION 
+Container technology has become widely used in cloud 
+environments due to its portability and lower overhead compared 
+to traditional virtualization technologies [1, 2]. Cloud service 
+providers offer predefined, fixed-sized containers to ensure 
+adequate performance isolation for users. However, due to this 
+ 
+ 
+This work is licensed under a Creative Commons Attribution International 4.0 
+License. 
+SAC '25, March 31-April 4, 2025, Catania, Italy 
+©  2025 Copyright is held by the owner/author(s). 
+ACM ISBN 979-8-4007-0629-5/25/03. 
+https://doi.org/10.1145/3672608.3707723 
+constraint, cloud users often over-provision containers to avoid 
+resource shortages [3]. This practice leads to the underutilization of 
+system resources (e.g., CPU, memory) in the cloud [4]. For instance, 
+an analysis of jobs executed on one of Google's clusters over the 
+course of a month found that the average memory utilization of the 
+cluster was only 50% [5, 6]. Since it is challenging for cloud users to 
+efficiently configure resources within containers, cloud service 
+providers offer container auto-scaling. Auto-scaling allows for 
+flexible allocation(scale-up) or reclamation(scale-down) of reso-
+urces within a container, providing resource elasticity. Resource 
+elasticity can be broadly categorized into two types: horizontal 
+elasticity and vertical elasticity. Horizontal elasticity adjusts the 
+number of containers handling a job, while vertical elasticity 
+adjusts the amount of resources allocated to each container. Cloud 
+service providers often use a horizontal auto-scaling approach. 
+However, horizontal auto-scaling has a relatively high overhead 
+when launching new instances, making it difficult to respond 
+immediately to unexpected spikes in resource usage. Additionally, 
+it is not suitable for applications that cannot be replicated or 
+decomposed into smaller, independent units [7, 8]. Vertical auto-
+scaling can be used to address the following limitations. Recently, 
+there has been a growing need for research on vertical auto-scaling 
+to manage stateful applications, such as scientific workflows and 
+machine learning jobs, and to provide instant resource elasticity for 
+real-time, critical applications [9, 10]. However, container vertical 
+elasticity has not been actively researched [11], and related industry 
+solutions are difficult to apply in real-world applications. For 
+example, the Vertical Pod Autoscaler (VPA) [12], supported by 
+Kubernetes [13], the de facto standard for container orchestration 
+that provides unified management and control of containers, 
+restarts containers when a scale-up in resources occurs, which 
+means that tasks must be reinitiated from the beginning [14]. 
+Despite the growing importance of vertical elasticity, it is not 
+actively researched and implemented due to the limitations in 
+achieving it. Each system has a physical limit on its resources, so it 
+is not possible to scale CPU or memory indefinitely [15]. In 
+particular, achieving memory resource elasticity is more difficult 
+than achieving CPU resource elasticity because CPU resources can 
+be shared among processes with some degree of flexibility, while 
+memory resources cannot. To overcome the constraints of physical 
+memory size, swap memory can be considered. Swap memory 
+prevents applications from running out of memory and causing 
+OOM(out-of-memory) errors [16]. However, swap memory 
+allocates some of the disk space to memory, which reduces the 
+performance of the application and system [17]. Furthermore, 
+because Kubernetes does not support swap memory by default, 
+containers that request memory allocations exceeding the system's 
+physical memory will cause an OOM error and be restarted [18]. 
+Therefore, managing vertical memory elasticity of applications in a 
+Kubernetes environment is a challenging problem. 
+201
+SAC ’25, March 31 – April 4, 2025, Sicily, Italy 
+Taeshin Kang and Heonchang Yu 
+ 
+ 
+ 
+We propose Elastic Vertical Memory Management (EVMM) for 
+stateful applications in Kubernetes environments. To the best of our 
+knowledge, there has been little research focusing on memory 
+elasticity in Kubernetes environments, particularly when swap 
+memory is disabled. We begin by modeling the priority of each task 
+and then perform a scale-up on the tasks based on these priorities. 
+Next, we pause and checkpoint tasks by limiting the CPU usage of 
+those that fail to scale-up. If memory pressure does not improve, 
+the paused tasks are terminated in order of decreasing priority. 
+Conversely, if memory pressure improves, the stopped tasks 
+continue from the checkpoint. When comparing EVMM to a 
+Kubernetes environment without vertical elasticity, we found that 
+the total execution time of container workflows was reduced by up 
+to 35%, and container restarts were reduced by up to 70x compared 
+to an environment with excessive memory oversubscription. 
+This paper is organized as follows. Section 2 introduces research 
+on vertical scaling and memory elasticity relevant to this study. 
+Section 3 defines the scope of the problem addressed in the paper. 
+In Section 4, we mathematically model metrics such as resources, 
+penalties, and rewards for task priorities and the magnitude of 
+scaling. Section 5 presents an algorithmic representation and 
+description of EVMM. Section 6 details the implementation of 
+EVMM. In Section 7, we evaluate the effectiveness of EVMM. 
+Finally, Section 8 analyzes the contributions of this work and 
+outlines future research directions. 
+2 RELATED WORK 
+Although not as numerous as horizontal scaling, the following 
+container-based vertical scaling or memory elasticity research has 
+been proposed. ElasticDocker [19] is the first paper to propose 
+container-based vertical scaling, and it uses the MAPE-K principle 
+to vertically scale Docker-based containers. If the host machine 
+does not have enough resources, it migrates containers to another 
+machine in real time based on examined metrics. Comparing 
+ElasticDocker to Kubernetes HPA, ElasticDocker achieved a 
+runtime reduction of about 37%. RUBAS [20] is a technique for 
+dynamically adjusting the allocation of containers running in a 
+Kubernetes cluster. If the machine to which the application is 
+assigned has enough resources, it scales the container vertically; if 
+it runs out of resources, it performs a disruptive container 
+migration to another machine. Compared to Kubernetes VPA, 
+RUBAS improved CPU and memory utilization in clusters by 10% 
+and reduced runtime by 15%. However, these early studies used a 
+rather simplistic approach to resource scaling, applying the same 
+scaling process per job, and did not account for job prioritization. 
+Several approaches have since been proposed that utilize vertical 
+scaling. Wang et al. proposed DYVERSE [21], which supports 
+dynamic vertical scaling in multi-tenant edge environments. They 
+propose dynamic prioritization approach that considers workloads, 
+communities, and systems to enable dynamic vertical scaling. 
+Buchaca et al. [22] propose a predictive vertical auto-scaling policy 
+that uses a time-window multi-layer perceptron (MLP) to predict 
+the stages of different types of containers and dynamically resize 
+containers accordingly. Choi et al. [23] utilized the vertical elasticity 
+feature provided by Docker to dynamically adjust computing 
+resources to improve system throughput in big data-based 
+applications. Kwan et al. proposed HyScale[7], which utilizes both 
+horizontal and vertical scaling of containers in a Docker-based 
+environment. However, these works did not pay attention to 
+memory elasticity. 
+Recent research has explored vertical elasticity in Kubernetes 
+environments. Zhao et al. [24] proposed a dynamic CPU allocation 
+technique tailored for serverless workloads, while SlackAuto [25] 
+introduced a slack-aware CPU vertical scaling mechanism to 
+enhance efficiency and performance in serverless applications. 
+Similarly, CaaSPER [26] dynamically adjusted CPU resources to 
+minimize slack and throttling, ensuring optimal usage. However, 
+these studies overlooked memory elasticity and did not address the 
+container restart issues of Kubernetes VPA. 
+Pufferish [27], on the other hand, focuses on memory elasticity 
+and shows how container-based lightweight virtualization opens 
+up opportunities to achieve memory elasticity. They implement an 
+elastic memory manager that leverages containers to flexibly 
+allocate memory for tasks. Pufferish is implemented in Apache 
+Yarn and has been shown to prevent OOM errors and improve 
+memory utilization. However, pufferish is based on environments 
+where swap memory is enabled, making it difficult to apply to 
+environments where swap memory is disabled. 
+3 PROBLEM MODELING 
+3.1 Model Description 
+Table 1 shows a description of the terms and abbreviations 
+mentioned in this paper. Let 𝑁= {𝑛1, 𝑛2, 𝑛3, 𝑛4 … 𝑛𝑚} denote the 
+set of servers (worker nodes) on which containers run, and 𝐶=
+{𝑐1, 𝑐2, 𝑐3, 𝑐4 … 𝑐𝑛} denote the set of containers running on worker 
+nodes. 𝑐𝑖∈𝐶, 𝑛𝑗∈𝑁, and satisfies the relation 𝐶⊂𝑁. 𝑇𝑐𝑖 denotes 
+the size of the resource time window for container 𝑐𝑖. 𝑇𝑐𝑖≤𝑇𝑚𝑎𝑥=
+60. Only resource usage within the resource time window is 
+considered to determine the scale-up size. Based on our empirical 
+observation, setting 𝑇𝑚𝑎𝑥 to 60 was judged to be reasonable and 
+effective. 𝐶𝑃𝑈𝑐𝑖 and 𝑀𝑐𝑖 represent the CPU and memory metrics 
+for container 𝑐𝑖. Meanwhile, 𝑁𝑃𝑀𝑐𝑖 denotes the memory infor-
+mation between 𝑛𝑗 and 𝑐𝑖 placed in 𝑛𝑗. The rest of the notation is 
+explained in Section 4. 
+Table 1: Notation and Description 
+Notation 
+Description 
+𝑁 
+The set of worker nodes 𝑛𝑗 running containers 
+𝐶 
+The set of containers 𝑐𝑖 running on worker nodes 
+𝑇𝑐𝑖 
+Size of the time window of container ci (up to 60sec) 
+𝐶𝑃𝑈𝑐𝑖 
+CPU information of container ci 
+𝑀𝑐𝑖 
+Memory information of container ci 
+𝑁𝑃𝑀𝑐𝑖 
+Memory information between container ci and node nj 
+𝑅𝑐𝑖 
+Resource metrics of container ci 
+𝐹𝐸𝐹𝑃𝑐𝑖 
+“First executed first priority” metric of container ci 
+𝑃𝑒𝑛𝑎𝑙𝑡𝑦𝑐𝑖 
+Penalty granted to container ci (rely on number of scale-up) 
+𝑅𝑒𝑤𝑎𝑟𝑑𝑐𝑖 Reward granted to container ci (rely on pause time) 
+𝑃𝑆𝑐𝑖 
+Priority score of container ci 
+3.2 Requirements of Vertical Memory Elasticity 
+To effectively achieve vertical memory elasticity, a vertical scaling 
+solution meet the following requirements: 
+3.2.1 Selecting which containers to scale. The servers (nodes) that 
+host containers have limited resources, so if multiple applications 
+require container scaling at the same time, not all containers can be 
+scaled. Therefore, we need to decide which containers should be 
+scaled and manage the scaling process to ensure that the remaining 
+containers are not scaled. 
+3.2.2 Handling containers due to memory pressure. Due to the size 
+limitations of a node's memory, some tasks must be stopped when 
+their memory requirements exceed the available physical memory. 
+However, since stopped tasks generally need to be reinitiated from 
+the beginning, a method to avoid this necessity should be devised. 
+202
+Elastic Vertical Memory Management 
+SAC ’25, March 31 – April 4, 2025, Sicily, Italy 
+ 
+ 
+3.2.3 Scaling size of memory. Implementing a fixed-size memory 
+elasticity that does not consider the resource usage trends of tasks 
+may result in unnecessary triggering of the scale-up mechanism 
+multiple times. Therefore, a mechanism should be included to 
+dynamically determine the memory scale size based on per-task 
+resource usage and usage trends. 
+4 DEFINE TASK PRIORITY AND SCALE SIZE 
+Vertical elasticity cannot infinitely allocate memory to all running 
+tasks due to limitations in host server capacity. We model the 
+priority of each task and scale the resources of tasks in order of 
+priority. The size of the resource scaling is determined dynamically 
+based on the memory usage and allocation trend of the task. 
+4.1 Task Priority 
+4.1.1 Resource Metrics 
+When prioritizing containers, the CPU usage of each container is a 
+crucial factor that cannot be ignored. Tasks with high CPU usage 
+need to be processed first. Considering only momentary CPU usage 
+does not reflect the recent usage trend of a container. Therefore, we 
+use the average CPU utilization over a time window T seconds to 
+prioritize containers. For a container 𝑐𝑖 and node 𝑛𝑗, 𝐶𝑃𝑈𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇 in 
+Equation (1) shows the average CPU utilization of 𝑐𝑖 over T seconds. 
+𝐶𝑃𝑈𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘 means CPU utilization for unit time 𝑡𝑘: 
+𝐶𝑃𝑈𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇= ∑
+𝐶𝑃𝑈𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘
+|𝑇𝑐𝑖|
+𝑡𝑘∈𝑇𝑐𝑖
+, 𝐶𝑃𝑈𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘= 𝑐𝑖
+𝐶𝑃𝑈𝑐𝑜𝑟𝑒𝑠_𝑡𝑘
+𝑛𝑗𝐶𝑃𝑈𝑐𝑜𝑟𝑒𝑠_𝑡𝑘
+(1) 
+where 𝑐𝑖𝐶𝑃𝑈𝑐𝑜𝑟𝑒𝑠_𝑡𝑘 and 𝑛𝑗𝐶𝑃𝑈𝑐𝑜𝑟𝑒𝑠_𝑡𝑘 represent the number of 
+CPU cores allocated to containers and nodes, respectively, at each 
+𝑡𝑘. The memory usage of each container is also a factor in 
+prioritization that cannot be ignored. Containers with high memory 
+usage (nearly reaching the maximum memory) should be 
+prioritized for memory scale to prevent OOM errors. Similar to 
+CPU usage, the average memory utilization over a time window of 
+T seconds is used to prioritize containers. For a container 𝑐𝑖, the 
+average of container memory utilization over T seconds (𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇) 
+is defined as shown in Equation (2). 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘 means memory 
+utilization for unit time 𝑡𝑘: 
+𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇= ∑
+𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘
+|𝑇𝑐𝑖|
+𝑡𝑘∈𝑇𝑐𝑖
+, 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘= 𝑐𝑖
+𝑀𝑒𝑚𝑈𝑠𝑒𝑑_𝑡𝑘
+𝑐𝑖𝑀𝑒𝑚𝐿𝑖𝑚𝑖𝑡
+(2) 
+where 𝑐𝑖𝑀𝑒𝑚𝐿𝑖𝑚𝑖𝑡 is the upper limit of the container memory, and 
+its value changes as memory undergoes vertical scale-up and scale-
+down. This means that 𝑐𝑖𝑀𝑒𝑚𝐿𝑖𝑚𝑖𝑡 is initially user-defined, but its 
+value is dynamically changed by the EVMM. 𝑐𝑖𝑀𝑒𝑚𝑈𝑠𝑒𝑑_𝑡𝑘 is the 
+amount of memory being used by the container at each 𝑡𝑘. 
+Containers that use a lot of memory on a node cause a large 
+overhead compared to containers that use a small amount of 
+memory when they are stopped and restarted by OOM or EVMM. 
+Therefore, these tasks should be given high priority. For a container 
+𝑐𝑖 and node 𝑛𝑗, Equation (3) shows the average memory utilization 
+between 𝑛𝑗 and 𝑐𝑖 is assigned (𝑁𝑃𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇). 𝑁𝑃𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘 means 
+memory utilization between 𝑛𝑗 and 𝑐𝑖 for every unit time 𝑡𝑘: 
+𝑁𝑃𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇= ∑
+𝑁𝑃𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘
+|𝑇𝑐𝑖|
+𝑡𝑘∈𝑇𝑐𝑖
+, 𝑁𝑃𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘= 𝑐𝑖
+𝑀𝑒𝑚𝑈𝑠𝑒𝑑_𝑡𝑘
+𝑛𝑗𝑀𝑒𝑚𝑆𝑖𝑧𝑒
+(3) 
+where 𝑛𝑗𝑀𝑒𝑚𝑆𝑖𝑧𝑒 represents the memory size of the node. Unlike 
+𝑐𝑖𝑀𝑒𝑚𝐿𝑖𝑚𝑖𝑡, 𝑛𝑗𝑀𝑒𝑚𝑆𝑖𝑧𝑒 is system-defined and does not change. The 
+variance in memory usage should also be considered. High variance 
+indicates high memory volatility, meaning that memory usage is 
+likely to spike suddenly, which can cause the container to restart. 
+Equation (4) illustrates the variance in memory utilization over T 
+seconds for a container 𝑐𝑖 (𝑀𝑐𝑖
+𝑉𝑎𝑟_𝑇): 
+𝑀𝑐𝑖
+𝑉𝑎𝑟_𝑇= ∑
+[𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇− 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑡𝑘]
+2
+|𝑇𝑐𝑖|
+𝑡𝑘∈𝑇𝑐𝑖
+(4) 
+We can synthesize the elements to define four components that 
+constitute resource metrics. The importance of these four factors in 
+constructing the resource metric varies from case to case, so we use 
+a weight vector 𝑊𝑇 = ( 𝑤1,𝑤2,𝑤3,𝑤4) to ensure the derivation of 
+the appropriate resource metric. For a container 𝑐𝑖, the resource 
+metric 𝑅𝑐𝑖 is denoted by Equation (5): 
+𝑅𝑐𝑖= [𝐶𝑃𝑈𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇, 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇, 𝑁𝑃𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙_𝑇, 𝑀𝑐𝑖
+𝑉𝑎𝑟_𝑇] ∗𝑊𝑇
+(5) 
+4.1.2 Task Priority Score 
+Kubernetes keeps a record of the execution order of each container. 
+In this paper, we define the First Executed First Priority (FEFP) 
+metric, which assigns high priority to containers that are executed 
+first. This approach aligns with the first-come, first-served policy 
+widely adopted in cloud resource provisioning [28]. Equation (6) 
+represents the 𝐹𝐸𝐹𝑃𝑐𝑖 metric for a container 𝑐𝑖: 
+𝐹𝐸𝐹𝑃𝑐𝑖=
+1
+𝑐𝑖𝑇𝑖𝑚𝑒𝑠𝑡𝑎𝑚𝑝
+(6) 
+To assign higher priority to containers that run first, we define the 
+𝐹𝐸𝐹𝑃 of container 𝑐𝑖 as the reciprocal of its timestamp 𝑐𝑖𝑇𝑖𝑚𝑒𝑠𝑡𝑎𝑚𝑝. 
+However, relying solely on 𝐹𝐸𝐹𝑃 can result in a fixed priority, 
+potentially leading to some tasks being consistently deprived of 
+resource allocation. To mitigate this issue, we introduce a 𝑃𝑒𝑛𝑎𝑙𝑡𝑦 
+and 𝑅𝑒𝑤𝑎𝑟𝑑 policy for prioritization. The more vertical scaling a 
+container undergoes, the greater the 𝑃𝑒𝑛𝑎𝑙𝑡𝑦 it incurs. This 
+prevents any container from monopolizing scale opportunities. For 
+a container 𝑐𝑖 and a node 𝑛𝑗, 𝑃𝑒𝑛𝑎𝑙𝑡𝑦𝑐𝑖 is set higher for containers 
+that have experienced more scale-ups compared to those that have 
+experienced fewer scale-ups. This is defined as in Equation (7): 
+𝑃𝑒𝑛𝑎𝑙𝑡𝑦𝑐𝑖= 1 −𝑐𝑖
+𝑆𝑐𝑎𝑙𝑒
+𝑛𝑗𝑆𝑐𝑎𝑙𝑒
+(7) 
+where 𝑛𝑗𝑆𝑐𝑎𝑙𝑒 represents the total number of scale-up operations 
+for all containers running on that node, and the 𝑐𝑖𝑆𝑐𝑎𝑙𝑒 is the 
+number of scale-up incurred by 𝑐𝑖. On the other hand, 𝑅𝑒𝑤𝑎𝑟𝑑 is 
+given in the order of containers with the most pauses due to low 
+priority. This avoids starvation of low-priority tasks. For a 
+container 𝑐𝑖, 𝑅𝑒𝑤𝑎𝑟𝑑𝑐𝑖 is set such that the highest priority is the 
+one that has experienced the most CPU limits in total execution 
+time of 𝑐𝑖, as shown in Equation (8): 
+𝑅𝑒𝑤𝑎𝑟𝑑𝑐𝑖=
+𝑐𝑖
+𝑃𝑎𝑢𝑠𝑒𝑇𝑖𝑚𝑒
+𝑐𝑖𝐸𝑥𝑒𝑐𝑢𝑡𝑖𝑜𝑛𝑇𝑖𝑚𝑒
+(8) 
+where 𝑐𝑖𝐸𝑥𝑒𝑐𝑢𝑡𝑖𝑜𝑛𝑇𝑖𝑚𝑒 represents the execution time of 𝑐𝑖, and 
+𝑐𝑖𝑃𝑎𝑢𝑠𝑒𝑇𝑖𝑚𝑒 is the duration that 𝑐𝑖 was paused by EVMM. We can 
+synthesize everything from sub-section 4.1 to derive the task 
+priority score for 𝑐𝑖. For a container 𝑐𝑖, the priority score 𝑃𝑆𝑐𝑖 is 
+represented as shown in Equation (9): 
+𝑃𝑆𝑐𝑖= [𝑅𝑐𝑖, 𝐹𝐸𝐹𝑃𝑐𝑖, 𝑃𝑒𝑛𝑎𝑙𝑡𝑦𝑐𝑖, 𝑅𝑒𝑤𝑎𝑟𝑑𝑐𝑖] ∗𝑊𝑇
+(9) 
+where 𝑊𝑇 = ( 𝑤1,𝑤2,𝑤3,𝑤4) is a vector representing the weight 
+assigned to each metric. As with 𝑅𝑐𝑖, the four metrics are of 
+different importance, so we use a weight vector. 
+203
+SAC ’25, March 31 – April 4, 2025, Sicily, Italy 
+Taeshin Kang and Heonchang Yu 
+ 
+ 
+ 
+Algorithm 1 Elastic Vertical Memory Management (EVMM) 
+1: 
+2: 
+3: 
+4: 
+5: 
+6: 
+7: 
+8: 
+9: 
+10: 
+11: 
+12: 
+13: 
+14: 
+15: 
+16: 
+17: 
+18: 
+19: 
+20: 
+21: 
+22: 
+23: 
+24: 
+25: 
+Input: Crun, Cpause, Cremove,CisCheckpoint 
+for ∀c ∈ (Crun ∪ Cpause) do  //DecisionScaleDown 
+if 𝑇𝑐𝑖 > 10 and 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙 < ThrScaleDown then 
+calculate scaledownc 
+ScaleDown(𝑐𝑖, 𝑠𝑐𝑎𝑙𝑒𝑑𝑜𝑤𝑛𝑐𝑖) 
+end if 
+end for 
+for ∀c ∈ Crun do //Append ScaleCandidate & Delete Pause 
+if 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙 > ThrScaleUp then 
+calculate scaleupc and append 𝑐𝑖 to Cscalecandidate 
+else if 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙 ≤ ThrScaleUp and 𝑐𝑖 ∈ Cpause then 
+ContinueContainer(𝑐𝑖)  
+remove 𝑐𝑖 from Cpause 
+  end if 
+end for 
+DecisionScaleUp(Cscalecandidate, Cpause) 
+DecisionRemove(Crun, Cpause, CisCheckpoint) 
+for ∀c ∈ Cremove do //DecisionRepairContainer 
+    if 𝑛𝑗
+𝑀𝑒𝑚𝑈𝑠𝑎𝑔𝑒 + 𝑐𝑖
+𝑀𝑒𝑚𝐿𝑖𝑚𝑖𝑡 + 𝑠𝑐𝑎𝑙𝑒𝑢𝑝𝑐𝑖 > 𝑛𝑗
+𝑀𝑒𝑚𝑆𝑖𝑧𝑒 then 
+        break the loop 
+    else 
+        RepairContainer(𝑐𝑖, 𝑠𝑐𝑎𝑙𝑒𝑢𝑝𝑐𝑖) 
+remove 𝑐𝑖 from Cremove 
+end if 
+end for 
+4.2 Scale Size 
+The EVMM does not perform scale-down and scale-up at the same 
+rate, but dynamically adjusts reclamation and allocation based on 
+the memory usage and allocation trends of the corresponding 
+operations. Equation (10) represents the amount of memory 
+reclaimed by the system when container 𝑐𝑖 performs a scale-down. 
+𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙𝑇𝑎𝑟𝑔𝑒𝑡 means the target memory utilization of container 𝑐𝑖: 
+𝑆𝑐𝑎𝑙𝑒𝑑𝑜𝑤𝑛𝑐𝑖= 𝑐𝑖𝑀𝑒𝑚𝐿𝑖𝑚𝑖𝑡−
+𝑐𝑖𝑀𝑒𝑚𝑈𝑠𝑒𝑑
+𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙𝑇𝑎𝑟𝑔𝑒𝑡
+(10) 
+This means that after performing scale-down, 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙 is guaranteed 
+to be 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙𝑇𝑎𝑟𝑔𝑒𝑡. On the other hand, the size of scale-up is highly 
+dependent on the size of the time window and the memory 
+allocation trend. The amount of memory that should be allocated to 
+the system when container 𝑐 performs a scale-up is defined as 
+shown in Equation (11): 
+𝑆𝑐𝑎𝑙𝑒𝑢𝑝𝑐𝑖= ∑𝑓(𝑡)
+𝑇𝑐𝑖
+10 +1
+𝑡=1
+ 𝑓(𝑡) = {
+0,
+𝑔(𝑡) < 0
+𝑇𝑚𝑎𝑥
+10𝛼𝑡∗𝑔(𝑡), 𝑔(𝑡) ≥0
+(11) 
+where 
+𝑔(𝑡) = 𝑐𝑖𝑀𝑒𝑚𝑈𝑠𝑒𝑑_10(𝑡−1)+1 −𝑐𝑖𝑀𝑒𝑚𝑈𝑠𝑒𝑑_10𝑡 
+(12) 
+where the notations such as 𝑇𝑐𝑖and 𝑇𝑚𝑎𝑥 were discussed in Section 
+3.1. Equation (12) shows the average memory usage for each bin of 
+𝑐𝑖. The size of the bin is set to 10 seconds. For example, if 𝑡= 1, it 
+returns the average memory usage from 1 second ago to 10 seconds 
+ago. If the value is negative, it means that the memory usage 
+decreased in that bin. In this paper, we do not use intervals with 
+negative average memory usage to calculate the size of the scale-up.  
+5 ELASTIC VERTICAL MEMORY MANAGEMENT 
+In this section, 𝐶𝑟𝑢𝑛 represents containers running without a CPU 
+limit from the set 𝐶 = {𝑐1,𝑐2 ,𝑐3,𝑐4…𝑐𝑛}. 𝐶𝑝𝑎𝑢𝑠𝑒 includes containers  
+Algorithm 2 DecisionScaleup() 
+1: 
+2: 
+3: 
+4: 
+5: 
+6: 
+7: 
+8: 
+9: 
+10: 
+11: 
+12: 
+13: 
+14: 
+15: 
+16: 
+17: 
+18: 
+Function DecisionScaleUp (Cscalecandidate, Cpause) 
+for ∀c ∈ Cscalecandidate then 
+if 𝑛𝑗
+𝑀𝑒𝑚𝑈𝑠𝑎𝑔𝑒 + 𝑠𝑐𝑎𝑙𝑒𝑢𝑝𝑐𝑖 > 𝑛𝑗
+𝑀𝑒𝑚𝑆𝑖𝑧𝑒 then 
+    break the loop 
+ else 
+𝑛𝑗
+𝑀𝑒𝑚𝑈𝑠𝑎𝑔𝑒 = 𝑛𝑗
+𝑀𝑒𝑚𝑈𝑠𝑎𝑔𝑒 + 𝑠𝑐𝑎𝑙𝑒𝑢𝑝𝑐𝑖 
+ScaleUp(𝑐𝑖, 𝑠𝑐𝑎𝑙𝑒𝑢𝑝𝑐𝑖) 
+remove 𝑐𝑖 from Cscalecandidate 
+if 𝑐𝑖 ∈ Cpause then 
+ContinueContainer(𝑐𝑖) 
+remove 𝑐𝑖 from Cpause 
+end if 
+end if 
+end for 
+for ∀c ∈ Cscalecandidate then 
+PauseContainer(𝑐𝑖, QuotaPause) 
+append 𝑐𝑖 to Cpause 
+end for 
+ 
+that requested but couldn’t achieve a scale-up due to insufficient 
+memory. 𝐶𝑟𝑒𝑚𝑜𝑣𝑒 refers to containers terminated due to memory 
+pressure, and 𝐶𝑖𝑠𝐶ℎ𝑒𝑐𝑘𝑝𝑜𝑖𝑛𝑡 indicates containers that have been 
+checkpointed. 𝐶𝑠𝑐𝑎𝑙𝑒𝐶𝑎𝑛𝑑𝑖𝑑𝑎𝑡𝑒 lists the candidate containers that 
+should undergo a scale-up. Pause the container by reducing its CPU 
+usage to minimize additional memory allocation for containers 
+under memory pressure. It is assumed that 𝐶𝑟𝑢𝑛, 𝐶𝑝𝑎𝑢𝑠𝑒, and 
+𝐶𝑠𝑐𝑎𝑙𝑒𝐶𝑎𝑛𝑑𝑖𝑑𝑎𝑡𝑒 are ordered in descending order based on 𝑃𝑆𝑐, from 
+Equation (9). For containers with tied priority scores, one is 
+randomly selected to determine the order. For containers with tied 
+priority scores, one is chosen at random to determine the order. 𝑇𝑐  
+is initialized to 0 after each scale event. Updates to container lists, 
+such as 𝐶𝑝𝑎𝑢𝑠𝑒, are assumed to be globally synchronized. 
+Algorithm 1 describes the overall procedure for EVMM. The 
+algorithm is executed on each node 𝑛∈𝑁 respectively. First, it 
+determines whether to scale-down based on the resource utilization 
+of container 𝑐𝑖 (Lines 3-8). If the memory utilization of 𝑐𝑖 is less 
+than 𝑇ℎ𝑟𝑆𝑐𝑎𝑙𝑒𝐷𝑜𝑤𝑛, then scale-down is performed. The size of the 
+scale-down is determined by Equation (10). To prevent scale-down 
+from occurring immediately after scale-up, if 𝑇𝑐𝑖 is too small (i.e. 
+𝑇𝑐𝑖< 10), scale-down will not occur. Next, consider the case where 
+current memory utilization of 𝑐𝑖 exceeds 𝑇ℎ𝑟𝑆𝑐𝑎𝑙𝑒𝑈𝑝. For each 
+exceeded container, we compute the required scale-up size 
+(Equation (11)). Conversely, if container 𝑐𝑖 is paused but its memory 
+usage improves, the container is unpaused (ContinueContainer(𝑐𝑖)) 
+(Lines 9-16). Depending on the system's resource availability, it may 
+not be possible to provide a scale-up to all scale candidates, so an 
+additional algorithm is needed to select which containers to scale 
+(described in Algorithm 2). The algorithm returns a set 𝐶𝑝𝑎𝑢𝑠𝑒 of 
+containers that failed to scale-up and were paused due to 
+insufficient resources. If a container needs to be stopped because 
+the resource on each node is not available, an additional algorithm 
+is required because we cannot arbitrarily stop any of the containers 
+in 𝐶𝑝𝑎𝑢𝑠𝑒 (described in Algorithm 3). Finally, lines 19-26 mean the 
+logic for deciding whether to repair the removed container. If the 
+removed container 𝑐𝑖 can be repaired due to memory pressure on 
+the node, 𝑐𝑖 is restarted from the checkpoint where it was stopped 
+and performs a scale-up. Note that this is already stopped with the 
+container running out of resources, so if we do not perform a scale-
+up it, it may be OOMKilled as soon as it is repaired. 
+Algorithm 2 determines whether each element in 𝐶𝑠𝑐𝑎𝑙𝑒𝑐𝑎𝑛𝑑𝑖𝑑𝑎𝑡𝑒 is 
+eligible for a scale-up and performs a scale-up on the eligible 
+containers based on Equation (11). If a container in 𝐶𝑝𝑎𝑢𝑠𝑒 is  
+204
+Elastic Vertical Memory Management 
+SAC ’25, March 31 – April 4, 2025, Sicily, Italy 
+ 
+ 
+Algorithm 3 DecisionRemove() 
+1: 
+2: 
+3: 
+4: 
+5: 
+6: 
+7: 
+8: 
+9: 
+10: 
+11: 
+12: 
+13: 
+14: 
+15: 
+16: 
+17: 
+18: 
+19: 
+20: 
+21: 
+22: 
+23: 
+24: 
+25: 
+Function DecisionRemove (Crun, Cpause, CisCheckpoint) 
+for ∀c ∈ Cpause do //DecisionCheckpoint 
+if 𝑀𝑐𝑖
+𝑈𝑡𝑖𝑙  > ThrCheckpoint then 
+if 𝑐𝑖 ∉ CisCheckpoint or 𝑇𝑐𝑖
+𝐶ℎ𝑒𝑐𝑘𝑝𝑜𝑖𝑛𝑡 > ThrReCheckpoint then 
+checkpointContainer(𝑐𝑖) 
+append or update 𝑐𝑖 to CisCheckpoint 
+end if 
+end if 
+end for 
+for ∀c ∈ Crun do // DecisionRemoveRestartContainer 
+if 𝑐𝑖 is restarted and 𝑐𝑖 ∈ CisCheckpoint then 
+append 𝑐𝑖 to Cremove 
+end if 
+end for 
+for ∀c ∈ CisCheckpoint ∩ Cpause do //DecisionRemoveContainer 
+if 𝑛𝑗
+𝑀𝑒𝑚𝑈𝑠𝑎𝑔𝑒 > ThrContainerStop then 
+removeContainer(𝑐𝑖) 
+remove 𝑐𝑖 from0 Cpause and append to Cremove 
+end if 
+end for 
+while n(CisCheckpoint) != 0 and n(Crun) < n(Cpause) then 
+Select one of the intersections of CisCheckpoint and Cpause as 𝑐𝑖. 
+removeContainer(𝑐𝑖)  
+remove 𝑐𝑖 from Cpause and append to Cremove 
+end while 
+ 
+eligible for a scale-up, the algorithm preforms the scale-up on that 
+container and unpauses it (Lines 2-14). For containers that cannot 
+undergo a scale-up because the node is running out of resources, 
+pause them (set the CPU quota to QuotaPause) to minimize memory 
+allocation (Lines 15-18). 
+Algorithm 3 checkpoints a paused container and decides whether 
+to remove it. First, it performs a checkpoint on container 𝑐𝑖 that has 
+crossed the checkpoint threshold, provided it has not already been 
+checkpointed (𝑇𝑐𝑖
+𝐶ℎ𝑒𝑐𝑘𝑝𝑜𝑖𝑛𝑡 is the time of the last checkpoint of 𝑐𝑖) 
+or has not been checkpointed recently (Lines 2-9). Meanwhile, 
+during the course of a workload, a container may be restarted due 
+to scaling failures, memory pressure, or other issues. When a 
+restart occurs, the task must be reinitiated from the beginning. 
+However, if the checkpoint data is available, restoring to a 
+checkpoint can reduce the task's running time. Line 10-14 explain 
+this process. Next, we can only remove containers that have a 
+checkpoint, so lines 15 through 20, which determine whether to 
+remove a container, are repeated only for the intersection of  
+𝐶𝑖𝑠𝐶ℎ𝑒𝑐𝑘𝑝𝑜𝑖𝑛𝑡 and 𝐶𝑝𝑎𝑢𝑠𝑒. First, if the memory usage exceeds 
+𝑇ℎ𝑟𝐶𝑜𝑛𝑡𝑎𝑖𝑛𝑒𝑟𝑆𝑡𝑜𝑝, it stops the execution of containers in 
+𝐶𝑖𝑠𝐶ℎ𝑒𝑐𝑘𝑝𝑜𝑖𝑛𝑡 until the situation is improved. This frees up memory 
+on the node so that memory can be allocated to other containers in 
+𝐶𝑠𝑐𝑎𝑙𝑒𝑐𝑎𝑛𝑑𝑖𝑑𝑎𝑡𝑒. Finally, we provide handling for when paused 
+containers become more numerous than unpaused containers 
+(Lines 21-25). As the number of paused containers increases, the 
+allocation/repair of resources for each container becomes slower. 
+This is similar to the deadlock problem in the system. To solve this 
+problem, we remove one of the containers that form the 
+intersection of 𝐶𝑖𝑠𝐶ℎ𝑒𝑐𝑘𝑝𝑜𝑖𝑛𝑡 and 𝐶𝑝𝑎𝑢𝑠𝑒. This means that even if 
+none of the checkpointed containers have reached 𝑇ℎ𝑟𝐶𝑜𝑛𝑡𝑎𝑖𝑛𝑒𝑟𝑆𝑡𝑜𝑝, 
+we remove them to improve the deadlock. 
+6 IMPLEMENTATION  
+The implementation of EVMM requires the ability to monitor and 
+control the resources of containers running on each node. For this 
+reason, we implemented a module to control the resources of 
+containers via the Container Runtime Interface (CRI) API [29]. The 
+CRI API is an internal API used by Kubernetes to communicate 
+with the container runtime. Additionally, to implement such a 
+management module, Kubernetes must be able to dynamically 
+change the memory size of a container and support container 
+checkpointing. Starting with Kubernetes v1.25 and later, an in-place 
+resource resize API has been implemented in the CRI API, and the 
+CRI-O [30] runtime environment has started supporting Linux's 
+Checkpoint/Restore In Userspace (CRIU) [31] checkpointing feature 
+in alpha. We chose CRI-O as our container runtime because it is the 
+only runtime that integrates checkpointing into Kubernetes. The 
+Kubernetes and CRI-O we used is v1.27, which supports both in-
+place resource resize and container checkpoints. 
+EVMM is implemented in the Go programming language. The 
+program runs on each worker node and manages container 
+memory on those nodes. Although the algorithm described in 
+Section 5 processes containers sequentially for checkpointing and 
+repair, these operations can be time-consuming (as mentioned in 
+Section 7). If the program were to wait for each checkpointing and 
+repair operation to complete before managing other containers, it 
+would be unable to handle additional container management tasks 
+during that time. Therefore, the actual implementation utilizes Go 
+routines 
+to 
+handle 
+checkpointing 
+and 
+repair 
+operations 
+asynchronously in separate threads. Additionally, it is designed to 
+manage multiple containers simultaneously, handling requests for 
+scale-up/scale-down, pause/continue operations in parallel, enab-
+ling immediate responses to resource allocation and repair requests. 
+ 
+Figure 1: EVMM Architecture overview. 
+Figure 1 illustrates the system structure and interaction with 
+EVMM. First, the EVMM creates a CRI RPC client to communicate 
+with CRI-O (①). Then, in ②-a, it communicates with CRI-O to 
+retrieve metadata and resource usage for each container in each 
+cycle. Based on this data, EVMM makes decisions and 
+communicates them to CRI-O. CRI-O then elastically adjusts 
+resources (e.g., scale-up) as instructed by EVMM (②-b). If a 
+container requires a checkpoint, EVMM requests CRI-O to perform 
+the checkpoint, which CRI-O accomplishes using CRIU (③). The 
+checkpoint data is then saved to storage (④). On the one hand, 
+when a container is removed via the Kubernetes API or the CRI API, 
+CRI-O has a 30-second timeout to complete the removal. If the 
+timeout is reached, the container is forcibly removed. During this 
+time, CRI-O remains busy and unresponsive to EVMM's requests. 
+To prevent this, we use Linux's sigkill to remove containers at the 
+process level(⑤), avoiding CRI-O's unresponsiveness. Finally, when 
+repairing a container in Kubernetes, the checkpoint must be created 
+as a container image and deployed as a Pod. EVMM uses buildah to 
+205
+SAC ’25, March 31 – April 4, 2025, Sicily, Italy 
+Taeshin Kang and Heonchang Yu 
+ 
+ 
+ 
+ 
+Figure 2: Total execution time for all workloads. 
+ 
+Figure 3: Container restart ratio for all workloads. 
+ 
+Figure 4: Node’s Memory resource utilization for all workloads.
+convert checkpoint data into a container image (⑥). It then requests 
+the kube-apiserver to deploy that image as a Pod (⑦-a). The kube-
+apiserver, via kubelet, instructs CRI-O to create the pod and 
+container (⑦-b & ⑦-c). Recognizing the container image as a 
+checkpoint image, CRI-O fetches the checkpoint data (referenced 
+by that container image) (⑧) and restores the container(⑦-d). After 
+restoration, the container continues running as if the checkpoint 
+was never used. 
+7 EVALUATION 
+7.1 Evaluation 
+7.1.1 Cluster and Environment Setup. In this experiment, a cluster 
+consists of four nodes, one of which acts as a master node that 
+performs cluster control. The remaining three nodes are configured 
+as worker nodes. All nodes are configured with Intel i9-10900K 
+processors, Ubuntu 20.04 is installed as the operating system, and 
+they are interconnected by 1 Gbps Ethernet. The worker nodes 
+have 32 GB of memory, and the master node has 16 GB of memory. 
+7.1.2 Experiment Workload. To verify the performance of EVMM 
+experimentally, we need a memory-elastic workload. Therefore, we 
+use the Princeton Application Repository for Shared-Memory 
+Computers (PARSEC) [32] and the SPLASH-2x benchmark [33]. 
+These benchmarks provide test data and programs that cover a 
+variety of real-world applications. Table 2 describes the 
+benchmarks used in our experiments. Memory volatility is 
+calculated as the peak memory usage of a benchmark container 
+divided by its average memory usage. A higher value indicates 
+greater memory volatility for that benchmark.  
+7.1.3 Experiment Method. Table 3 presents the parameters used in 
+the experiments. These parameters were selected heuristically, and 
+there may be more optimized configurations to improve the 
+execution time of the benchmarks. This study assumes a scenario 
+where the memory of a container application with high memory 
+volatility is being controlled. Each experimental workload in Table 
+2 consists of multiple containers, each performing a computation 
+and terminating upon completion. In this scenario, containers do 
+not communicate with one another, and no external requests are 
+injected. Each container is deployed to Kubernetes at regular 
+intervals, which is intended to give different containers different 
+values for the FEFP metric in Equation (6). In this experiment, 
+EVMM ensures that each node has sufficient resources before 
+running a container, preventing all containers from running 
+simultaneously. If a node lacks sufficient resources, the container 
+Table 2: Workload descriptions used in the experiment. 
+Workload 
+Description 
+Volatility 
+Blackscholes 
+Financial analysis application 
+1.16 
+Raytrace 
+3D rendering applications 
+1.68 
+Barnes 
+N-body simulation for astrophysics 
+1.37 
+Radix 
+Radix sort, a numeric sorting algorithm 
+2.65 
+Table 3: Parameter configuration. 
+Parameter 
+Value 
+QuotaPause 
+20millicore (0.02 CPU) 
+ThrScaleUp 
+80% 
+ThrScaleDown 
+70% 
+ThrCheckpoint 
+82% 
+ThrReCheckPoint 
+120sec 
+ThrContainerStop 
+95%  
+remains in a pending state and only starts running on the node 
+once resources become available. The performance of EVMM is 
+evaluated by executing the workloads listed in Table 2 individually. 
+It is difficult to use Kubernetes VPA for a comparison experiment 
+because it requires restarting containers every time a scale 
+operation occurs. Therefore, in this paper, we chose an over-
+subscription environment for comparison. Oversubscription refers 
+to allocating resources to more users or processes than the system 
+can serve. In practice, it is used as a strategy to maintain high 
+resource utilization or to serve more users even when resources are 
+scarce, and it is widely used in cloud environments [18]. 
+7.2 Experimental Results 
+Figure 2 shows the normalized total execution time of the test 
+workloads listed in Table 2. The baseline for normalization is a 
+standard Kubernetes environment without oversubscription. The 
+total execution time is defined as the difference between the start 
+time of the first container and the end time of the last container. 
+Due to varying memory volatility and workload characteristics, 
+comparing workloads using the same oversubscription ratio is 
+challenging. Therefore, the figure presents different oversub-
+scription ratios for each workload. Figure 3 shows the percentage of 
+container restarts for each workload, calculated as the number of 
+container restarts divided by the total number of containers in that 
+workload. For instance, if a workload with 50 containers 
+experiences 5 restarts, the restart rate is 0.1. Figure 4 provides a 
+normalized graph of memory resource usage for each workload, 
+with normalization based on the longest runtime. 
+206
+Elastic Vertical Memory Management 
+SAC ’25, March 31 – April 4, 2025, Sicily, Italy 
+ 
+ 
+ 
+Figure 5: Average container execution time for all workloads. 
+ 
+Figure 7: CDFs of average container execution time for 
+selected workloads. 
+In Figure 2, EVMM demonstrates strong performance across 
+workloads with varying memory volatility. It reduces execution 
+time by up to 35% compared to a typical Kubernetes environment 
+without oversubscription. Even when compared to the optimal 
+oversubscription scenario, EVMM incurs a performance delay of 
+only 5% or less. This delay can be attributed to the CPU usage of 
+some containers being throttled or paused when there is memory 
+pressure on the node, which increases the execution time of those 
+containers (as illustrated in Figure 5). Nevertheless, the difference 
+from the optimal oversubscription scenario remains minimal. In the 
+case of the barnes, the optimal scenario is the no oversubscription 
+case, and EVMM outperforms it by about 5%. As shown in Figure 3, 
+EVMM can minimize container restarts even when memory 
+resources are scarce. For the barnes, there were very few restarts, 
+with a reduction of more than 70x compared to the heavily 
+oversubscribed environment (150%). In the case of blackscholes, no 
+restarts occurred at all. This suggests that barnes and blackscholes 
+have relatively low memory volatility, making CPU throttling 
+effective in pausing these workloads. However, for workloads with 
+very high memory volatility, such as radix, even if you attempt to 
+pause the container with CPU throttling, memory may continue to 
+be allocated, causing the container to exceed its maximum memory, 
+resulting in a somewhat higher restart rate. Despite this, EVMM 
+still effectively controls container restarts. 
+In Figure 4, we can see that memory utilization is low for all 
+workloads when there is no oversubscription. However, with 
+oversubscription, memory utilization increases, but excessive 
+oversubscription results in a significant rise in the number of 
+container restarts (Figure 3), which in turn increases the total 
+execution time (Figure 2). EVMM, on the other hand, aims to 
+maintain memory utilization below the ThrContainerStop for all 
+workloads. When memory pressure occurs, EVMM stops some of 
+the checkpointed containers, which frees up memory. This freed-up 
+memory is then allocated to the remaining paused containers, and 
+new containers are scheduled on those nodes. As a result, we 
+achieve stable memory utilization below the ThrContainerStop while 
+reducing the restart rate of containers compared to an 
+oversubscribed environment, and still attain up to 1.5x better 
+memory utilization compared to a situation without oversub- 
+scription. This is illustrated in Figures 4(a) and 4(c). For example, 
+blackscholes and barnes show memory utilization oscillating near 
+ThrContainerStop in the 0-0.2 and 0.2-0.4 ranges, respectively. During 
+these intervals, some containers are checkpointed and removed. As  
+ 
+Figure 6: average container wait time for all workloads. 
+ 
+Figure 8: CDFs of average container wait time for selected 
+workloads. 
+the memory pressure improves, the removed containers are 
+restarted (in the 0.2-0.4 and 0.4-0.6 ranges, respectively). Raytrace 
+and radix exhibit higher memory volatility compared to containers 
+may restart beyond ThrContainerStop. Notably, radix does not oscillate at 
+ThrContainerStop due to this high volatility. Although both raytrace and 
+radix have high memory volatility, their graphs show different 
+behaviors. This difference arises because the unit container in radix 
+is relatively large (approximately 2.5 times the maximum memory 
+usage of raytrace), resulting in a significant decrease in memory after 
+container removal (in the 0.3-0.4 range). Moreover, given that the 
+checkpoint size is relatively large (see Table 4), the memory increase 
+during repair is considerable in comparison to other workloads. 
+Figures 5 and 6 illustrate the normalized average execution time 
+and wait time per container for all test workloads. Container 
+execution time is defined as the sum of the time the container ran 
+and the CrashLoopBackOff time, with the exclusion of the time the 
+container was stopped by EVMM. The wait time represents the 
+period during which the container was awaiting execution, 
+inclusive of the interval during which EVMM terminated the 
+container. The time a container is paused is considered part of the 
+running time and is therefore included in the container execution 
+time. The baseline for normalization is a standard Kubernetes 
+environment without oversubscription. Figures 7 and 8 illustrate 
+the cumulative distribution functions (CDFs) for container 
+execution time and wait time for select workloads. Normalization 
+was based on the largest value observed for each workload. 
+In Figure 5, EVMM demonstrates good execution times, though it 
+is somewhat slower compared to the scenario with the optimal total 
+execution time. This is also reflected in Figure 7, where we see that 
+in the barnes, some containers experience delays due to pausing. 
+Conversely, the radix shows a greater number of containers with 
+extended execution times than barnes, which is attributed to the 
+high restart rate of containers, leading to a higher proportion of 
+containers running for longer durations. Figure 6 indicates that the 
+wait time is similar to or slightly higher than in the optimal total 
+execution time scenario. This is because EVMM stops the container, 
+a new container is allocated, but the wait time reduction is 
+amortized because the removed container must also wait to be 
+repaired. Notably, barnes has the longest wait time. Since barnes is 
+not memory elastic, containers removed by EVMM must wait for 
+other containers to complete their work (as shown in Figure 8).  
+This increases the wait time, but the total execution time is the 
+fastest for EVMM, which is due to the effectiveness of checkpoints. 
+207
+SAC ’25, March 31 – April 4, 2025, Sicily, Italy 
+Taeshin Kang and Heonchang Yu 
+ 
+ 
+ 
+Table 4: Overhead of checkpoint and create images. 
+Workload 
+Checkpoint(s) 
+CreateImages(s) 
+Size(GB) 
+Blackscholes 
+22.2 
+188.6 
+1.7 
+Raytrace 
+31.2 
+138 
+1.58 
+Barnes 
+14.7 
+117.95 
+1.6 
+Radix 
+19 
+112.5 
+3.5 
+Table 4 shows the average time taken for checkpoints and image 
+creation across all workloads. Interestingly, there is no correlation 
+between checkpoint size and duration. Radix had relatively short 
+times, averaging 19 seconds, despite having checkpoints more than 
+twice the size of those in other workloads. This is likely due to the 
+greater impact of container runtime load on each node. For example, 
+in raytrace, which has a relatively large number of segments with 
+memory utilization higher than ThrContainerStop (as shown in Figure 
+4), the shortest checkpoint time was 7 seconds, while the longest 
+was 68 seconds, a difference of about 10x. In contrast, radix showed 
+less variation, with checkpoint times ranging from 6 to 30 seconds. 
+Another factor is the sheer number of containers managed by the 
+container runtime. Blackscholes and raytrace have relatively small 
+unit container sizes, meaning many containers run on a single node. 
+As a result, the container runtime must process scale-up operations, 
+checkpoint requests, and other tasks from a large number of 
+containers simultaneously, which can slow down processing and 
+cause delays. This suggests that we should carefully determine 
+when and how often to perform checkpoints. Additionally, 
+converting checkpoint data into a container image can also cause 
+significant delays: the fastest image creation time for raytrace was 
+13 seconds, while the slowest took 190 seconds. We observed that 
+delays in checkpointing and image generation were generally 
+worse under high-memory conditions and when these commands 
+were executed in parallel, which some controls failed to handle. 
+8 CONCLUSION 
+We propose a new elastic memory management method, EVMM, 
+for Kubernetes environments. To the best of our knowledge, no 
+previous work has defined and addressed the problem of memory 
+elasticity in a Kubernetes environment with swap memory disabled. 
+EVMM dynamically scales the resource size of containers up and 
+down while monitoring the memory utilization of nodes. It also 
+pauses and stops tasks based on priority when memory pressure 
+occurs on a node. This minimizes container restarts while ensuring 
+memory availability for high-priority jobs. When comparing 
+EVMM to a traditional Kubernetes environment without vertical 
+elasticity, we found that the total execution time of container 
+workflows was reduced by up to 35%, and memory utilization on 
+nodes improved by 1.5x. This approach provides an opportunity for 
+achieving memory vertical elasticity in stateful applications.  
+However, we identified some issues: repairing removed 
+containers can cause resource imbalance between nodes, resulting 
+in container skewing to certain nodes; checkpointing when a node 
+is low on memory can overload the container runtime, causing 
+some controls to fail; and restarting tasks with highly volatile 
+memory cannot always be prevented by limiting CPU usage. Future 
+work will address these issues, further refine EVMM, and integrate 
+its capabilities into the Kubernetes VPA. 
+ACKNOWLEDGMENTS 
+This research was supported by the MSIT(Ministry of Science and 
+ICT), Korea, under the ICAN(ICT Challenge and Advanced 
+Network of HRD) support program(IITP-2024-RS-2022-00156439) 
+supervised by the IITP(Institute for Information & Communications 
+Technology Planning & Evaluation) 
+REFERENCES 
+[1] 
+Setlur, Amrith Rajagopal, et al. "An efficient fault tolerant workflow scheduling 
+approach using replication heuristics and checkpointing in the cloud." Journal of 
+Parallel and Distributed Computing 136 (2020): 14-28. 
+[2] 
+Das, Arun, et al. "Distributed machine learning cloud teleophthalmology IoT for 
+predicting AMD disease progression." Future Generation Computer Systems 93 
+(2019): 486-498. 
+[3] 
+Rzadca, Krzysztof, et al. "Autopilot: workload auto-scaling at Google." 
+*Proceedings of the Fifteenth European Conference on Computer Systems*. 2020. 
+[4] 
+Bhasi, Vivek M., et al. "Kraken: Adaptive container provisioning for deploying 
+dynamic dags in serverless platforms." Proceedings of the ACM Symposium on 
+Cloud Computing. 2021. 
+[5] 
+C. Reiss, J. Wilkes, and J. L. Hellerstein. Google cluster-usage traces: format 
+schema. Technical report at https://github.com/google/clusterdata/, Google, 
+Mountain View, CA, USA, 2011. 
+[6] 
+C. Reiss, A. Tumanov, G. R. Ganger, R. H. Katz, and M. A. Kozuch. Heterogeneity 
+and dynamicity of clouds at scale: Google trace analysis. In 3rd ACM Symposium 
+on Cloud Computing (SoCC’12), page 7. ACM, 2012. 
+[7] 
+Kwan, Anthony, et al. "Hyscale: Hybrid and network scaling of dockerized 
+microservices in cloud data centres." 2019 IEEE 39th International Conference on 
+Distributed Computing Systems (ICDCS). IEEE, 2019. 
+[8] 
+Vu, Dinh-Dai, Minh-Ngoc Tran, and Younghan Kim. "Predictive hybrid 
+autoscaling for containerized applications." IEEE Access 10 (2022): 109768-109778. 
+[9] 
+Verma, Shveta, and Anju Bala. "Auto-scaling techniques for IoT-based cloud 
+applications: a review." Cluster Computing 24.3 (2021): 2425-2459. 
+[10] Buchaca, David, et al. "Proactive container auto-scaling for cloud native machine 
+learning services." 2020 IEEE 13th International Conference on Cloud Computing 
+(CLOUD). IEEE, 2020. 
+[11] Dogani, Javad, Reza Namvar, and Farshad Khunjush. "Auto-scaling techniques in 
+container-based cloud and edge/fog computing: Taxonomy and survey." 
+Computer Communications (2023). 
+[12] https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler 
+[13] https://kubernetes.io/ 
+[14] Rattihalli, Gourav, et al. "Exploring potential for non-disruptive vertical auto 
+scaling and resource estimation in kubernetes." 2019 IEEE 12th International 
+Conference on Cloud Computing (CLOUD). IEEE, 2019. 
+[15] Lloyd, Seth. "Ultimate physical limits to computation." Nature 406.6799 (2000): 
+1047-1054. 
+[16] Williams, Dan, et al. "Overdriver: Handling memory overload in an 
+oversubscribed cloud." ACM SIGPLAN Notices 46.7 (2011): 205-216. 
+[17] Koh, Kwangwon, et al. "Disaggregated cloud memory with elastic block 
+management." IEEE Transactions on Computers 68.1 (2018): 39-52. 
+[18] Luksa, Marko. Kubernetes in action. Simon and Schuster, 2017. 
+[19] Al-Dhuraibi, Yahya, et al. "Autonomic vertical elasticity of docker containers with 
+elasticdocker." 2017 IEEE 10th international conference on cloud computing 
+(CLOUD). IEEE, 2017. 
+[20] Rattihalli, Gourav, et al. "Exploring potential for non-disruptive vertical auto 
+scaling and resource estimation in kubernetes." 2019 IEEE 12th International 
+Conference on Cloud Computing (CLOUD). IEEE, 2019. 
+[21] Wang, Nan, et al. "DYVERSE: dynamic vertical scaling in multi-tenant edge 
+environments." Future Generation Computer Systems 108 (2020): 598-612. 
+[22] Buchaca, David, et al. "Proactive container auto-scaling for cloud native machine 
+learning services." 2020 IEEE 13th International Conference on Cloud Computing 
+(CLOUD). IEEE, 2020. 
+[23] Choi, Jin-young, Minkyoung Cho, and Jik-Soo Kim. "Employing vertical elasticity 
+for efficient big data processing in container-based cloud environments." Applied 
+Sciences 11.13 (2021): 6200. 
+[24] Zhao, Yuxuan, and Alexandru Uta. "Tiny autoscalers for tiny workloads: 
+Dynamic CPU allocation for serverless functions." 2022 22nd IEEE International 
+Symposium on Cluster, Cloud and Internet Computing (CCGrid). IEEE, 2022. 
+[25] Jang, Hyeon-Jun, and Hyun-Wook Jin. "SlackAuto: Slack-Aware Vertical 
+Autoscaling of CPU Resources for Serverless Computing." 2024 IEEE 17th 
+International Conference on Cloud Computing (CLOUD). IEEE, 2024. 
+[26] Pavlenko, Anna, et al. "Vertically Autoscaling Monolithic Applications with 
+CaaSPER: Scalable Container-as-a-Service Performance Enhanced Resizing 
+Algorithm for the Cloud." Companion of the 2024 International Conference on 
+Management of Data. 2024. 
+[27] Chen, Wei, et al. "Pufferfish: Container-driven elastic memory management for 
+data-intensive applications." Proceedings of the ACM Symposium on Cloud 
+Computing. 2019. 
+[28] He, Sijin, et al. "Elastic application container: A lightweight approach for cloud 
+resource provisioning." 2012 IEEE 26th International Conference on Advanced 
+Information Networking and Applications. IEEE, 2012. 
+[29] https://github.com/kubernetes/cri-api 
+[30] https://github.com/cri-o/cri-o 
+[31] https://criu.org/ 
+[32] Bienia, Christian, et al. "The PARSEC benchmark suite: Characterization and 
+architectural implications." Proceedings of the 17th international conference on 
+Parallel architectures and compilation techniques. 2008. 
+[33] https://www.capsl.udel.edu/splash/index.html 
+ 
+208
